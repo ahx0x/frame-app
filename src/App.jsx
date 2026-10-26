@@ -81,9 +81,9 @@ export default function App() {
         </header>
 
         {/* Main content */}
-        <div className="grid lg:grid-cols-[1fr,360px] gap-6 lg:gap-8 items-start">
+<div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr),360px] gap-6 lg:gap-8 items-start">
           {/* Canvas area */}
-          <div className="glass rounded-2xl p-3 sm:p-4 md:p-6 fade-in">
+            <div className="glass rounded-2xl p-3 sm:p-4 md:p-6 fade-in min-w-0">
             {userImage ? (
               <div className="fade-in">
                 <EditorCanvas
@@ -99,7 +99,7 @@ export default function App() {
           </div>
 
           {/* Controls panel */}
-          <div className="space-y-4 fade-in">
+         <div className="space-y-4 fade-in min-w-0">
             {/* Upload button - prominent on mobile */}
             <div className="lg:hidden">
               <UploadButton onUpload={setUserImage} hasImage={!!userImage} />

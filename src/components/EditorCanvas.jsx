@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Stage, Layer, Image } from 'react-konva'
 import useImage from 'use-image'
 import { STAGE_PREVIEW_WIDTH } from '../lib/export'
@@ -6,39 +6,45 @@ import { STAGE_PREVIEW_WIDTH } from '../lib/export'
 export default function EditorCanvas({ userImage, coverData, imageRef, onTransform }) {
   const [userImg] = useImage(userImage?.src || '')
   const [coverImg] = useImage(coverData?.coverUrl || '')
-  const containerRef = useRef()
-  const [stageSize, setStageSize] = useState(STAGE_PREVIEW_WIDTH)
+  const containerRef = useRef(null)
+  const [stageSize, setStageSize] = useState(0) // 0 = لا ترسم شيئًا بعد
   const lastDistRef = useRef(0)
   const prevPreviewRef = useRef(null)
 
   const { photoRect, originalWidth, originalHeight } = coverData
-  const previewScale = stageSize / originalWidth
+  const previewScale = (stageSize || 1) / originalWidth
   const stageHeight = Math.round(originalHeight * previewScale)
 
-  // قياس عرض الحاوية الفعلي (جوال/تابلت/ديسكتوب)
-  useEffect(() => {
-    const updateSize = () => {
-      if (containerRef.current) {
-        const width = containerRef.current.offsetWidth
-        setStageSize(Math.max(260, Math.min(width, STAGE_PREVIEW_WIDTH)))
-      }
+  // ✅ القياس الصحيح قبل أول رسم + مراقبة أي تغيّر في الحجم
+  useLayoutEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+
+    const measure = () => {
+      const safe = Math.min(
+        el.clientWidth || window.innerWidth - 72,
+        window.innerWidth - 72,          // ✅ سقف: لا يتجاوز شاشة الجوال أبدًا
+        STAGE_PREVIEW_WIDTH
+      )
+      setStageSize(Math.max(240, safe))
     }
-    updateSize()
-    window.addEventListener('resize', updateSize)
-    window.addEventListener('orientationchange', updateSize)
+
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    window.addEventListener('orientationchange', measure)
     return () => {
-      window.removeEventListener('resize', updateSize)
-      window.removeEventListener('orientationchange', updateSize)
+      ro.disconnect()
+      window.removeEventListener('orientationchange', measure)
     }
   }, [])
 
-  // عند تغيّر حجم المسرح: نعيد تحجيم موضع ومقياس الصورة بنفس النسبة
-  // حتى لا "تتخرب" تعديلات المستخدم عند تدوير الجهاز أو تغيّر الشاشة
+  // عند تغيّر حجم المسرح: إعادة تحجيم تعديلات المستخدم بنفس النسبة
   useEffect(() => {
     const ps = stageSize / originalWidth
     const prev = prevPreviewRef.current
     prevPreviewRef.current = ps
-    if (prev && prev !== ps) {
+    if (prev && prev !== ps && stageSize > 0) {
       const node = imageRef.current
       if (node && node.image()) {
         const ratio = ps / prev
@@ -50,9 +56,9 @@ export default function EditorCanvas({ userImage, coverData, imageRef, onTransfo
     }
   }, [stageSize, originalWidth])
 
-  // الضبط الأولي: ملء منطقة الصورة بالكامل (Cover Fit)
+  // الضبط الأولي: ملء منطقة الصورة (Cover Fit)
   useEffect(() => {
-    if (userImg && imageRef.current) {
+    if (userImg && imageRef.current && stageSize > 0) {
       const node = imageRef.current
       const rectAspect = photoRect.w / photoRect.h
       const imgAspect = userImg.naturalWidth / userImg.naturalHeight
@@ -75,7 +81,7 @@ export default function EditorCanvas({ userImage, coverData, imageRef, onTransfo
       node.getLayer()?.batchDraw()
       onTransform?.()
     }
-  }, [userImg])
+  }, [userImg, stageSize])
 
   // تكبير بعجلة الماوس
   const handleWheel = (e) => {
@@ -90,7 +96,7 @@ export default function EditorCanvas({ userImage, coverData, imageRef, onTransfo
     onTransform?.()
   }
 
-  // تكبير بإصبعين (Pinch Zoom) للجوال
+  // تكبير بإصبعين للجوال
   const getDistance = (p1, p2) =>
     Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2))
 
@@ -130,38 +136,41 @@ export default function EditorCanvas({ userImage, coverData, imageRef, onTransfo
   }
 
   return (
-    <div ref={containerRef} className="w-full">
-      <Stage
-        width={stageSize}
-        height={stageHeight}
-        className="konva-stage"
-        onWheel={handleWheel}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-      >
-        <Layer>
-          {userImg && (
-            <Image
-              ref={imageRef}
-              image={userImg}
-              draggable
-              onDragMove={onTransform}
-              onTransform={onTransform}
-            />
-          )}
-          {coverImg && (
-            <Image
-              image={coverImg}
-              x={0}
-              y={0}
-              width={stageSize}
-              height={stageHeight}
-              listening={false}
-            />
-          )}
-        </Layer>
-      </Stage>
+    <div ref={containerRef} className="w-full min-w-0">
+      {/* ✅ لا نرسم المسرح قبل معرفة المقاس الصحيح */}
+      {stageSize > 0 && (
+        <Stage
+          width={stageSize}
+          height={stageHeight}
+          className="konva-stage"
+          onWheel={handleWheel}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
+          <Layer>
+            {userImg && (
+              <Image
+                ref={imageRef}
+                image={userImg}
+                draggable
+                onDragMove={onTransform}
+                onTransform={onTransform}
+              />
+            )}
+            {coverImg && (
+              <Image
+                image={coverImg}
+                x={0}
+                y={0}
+                width={stageSize}
+                height={stageHeight}
+                listening={false}
+              />
+            )}
+          </Layer>
+        </Stage>
+      )}
     </div>
   )
 }
