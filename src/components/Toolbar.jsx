@@ -1,27 +1,9 @@
-import { useState, useEffect } from 'react'
-import { config } from '../lib/config'
+import { useEffect } from 'react'
 import { STAGE_PREVIEW_WIDTH } from '../lib/export'
 
-export default function Toolbar({ imageRef, coverData, onTransform, onReset }) {
-  const [factor, setFactor] = useState(1)
-  const [baseScale, setBaseScale] = useState(1)
-
-  useEffect(() => {
-    if (imageRef.current) {
-      setBaseScale(imageRef.current.scaleX())
-      setFactor(1)
-    }
-  }, [imageRef.current?.image?.()])
-
-  const applyFactor = (newFactor) => {
-    if (!imageRef.current) return
-    const clamped = Math.max(config.zoom.min, Math.min(config.zoom.max, newFactor))
-    const newScale = baseScale * clamped
-    imageRef.current.scale({ x: newScale, y: newScale })
-    imageRef.current.getLayer().batchDraw()
-    setFactor(clamped)
-    onTransform?.()
-  }
+export default function Toolbar({ imageRef, coverData, onTransform, onReset, zoom, onFactor }) {
+  const pct = Math.round(zoom.factor * 100)
+  const fill = ((zoom.factor - zoom.min) / (zoom.max - zoom.min)) * 100
 
   const rotate = () => {
     if (!imageRef.current) return
@@ -33,13 +15,12 @@ export default function Toolbar({ imageRef, coverData, onTransform, onReset }) {
   const center = () => {
     const node = imageRef.current
     if (!node) return
-    // الإصلاح: الحساب من عرض المسرح الفعلي وليس من ثابت
     const stage = node.getStage()
     const stageWidth = stage ? stage.width() : STAGE_PREVIEW_WIDTH
     const previewScale = stageWidth / coverData.originalWidth
     node.position({
-      x: photoCenterX(coverData, previewScale),
-      y: photoCenterY(coverData, previewScale)
+      x: coverData.photoRect.x * previewScale + (coverData.photoRect.w * previewScale) / 2,
+      y: coverData.photoRect.y * previewScale + (coverData.photoRect.h * previewScale) / 2
     })
     node.getLayer().batchDraw()
     onTransform?.()
@@ -47,28 +28,45 @@ export default function Toolbar({ imageRef, coverData, onTransform, onReset }) {
 
   return (
     <div className="glass rounded-2xl p-4 md:p-5 space-y-5">
+      {/* ===== مؤشر التكبير الاحترافي ===== */}
       <div>
         <div className="flex items-center justify-between mb-3">
           <label className="text-sm text-zinc-300 font-medium">التكبير</label>
-          <span className="text-xs bg-yellow-500/10 text-yellow-500 px-2.5 py-1 rounded-full font-semibold">
-            {Math.round(factor * 100)}%
-          </span>
+          <button
+            onClick={() => onFactor(1)}
+            title="اضغط للعودة إلى 100%"
+            className="text-xs bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-500 px-3 py-1 rounded-full font-bold tabular-nums transition-colors"
+          >
+            {pct}%
+          </button>
         </div>
-        <input
-          type="range"
-          min={config.zoom.min}
-          max={config.zoom.max}
-          step={config.zoom.step}
-          value={factor}
-          onChange={(e) => applyFactor(parseFloat(e.target.value))}
-          className="w-full"
-        />
-        <div className="flex justify-between text-xs text-zinc-500 mt-1.5">
-          <span>30%</span>
-          <span>300%</span>
+
+        <div className="flex items-center gap-2" dir="ltr">
+          <ZoomStepBtn onClick={() => onFactor(zoom.factor / 1.15)} label="−" />
+          <input
+            type="range"
+            min={zoom.min}
+            max={zoom.max}
+            step={0.01}
+            value={zoom.factor}
+            onChange={(e) => onFactor(parseFloat(e.target.value))}
+            className="flex-1"
+            style={{
+              background: `linear-gradient(to right, #eab308 ${fill}%, #3f3f46 ${fill}%)`
+            }}
+            dir="ltr"
+          />
+          <ZoomStepBtn onClick={() => onFactor(zoom.factor * 1.15)} label="+" />
+        </div>
+
+        <div className="flex items-center justify-between mt-2 text-[10px] text-zinc-500 tabular-nums">
+          <span>{Math.round(zoom.min * 100)}%</span>
+          <QualityBadge sharpness={zoom.sharpness} />
+          <span>{Math.round(zoom.max * 100)}%</span>
         </div>
       </div>
 
+      {/* ===== أزرار الإجراءات ===== */}
       <div className="grid grid-cols-3 gap-2">
         <ToolButton onClick={rotate} icon={<RotateIcon />} label="تدوير" />
         <ToolButton onClick={center} icon={<CenterIcon />} label="توسيط" />
@@ -77,19 +75,37 @@ export default function Toolbar({ imageRef, coverData, onTransform, onReset }) {
 
       <div className="pt-4 border-t border-zinc-800/50">
         <p className="text-xs text-zinc-500 text-center leading-relaxed">
-          💡 اسحب الصورة لتحريكها<br />
-          استخدم إصبعين أو عجلة الماوس للتكبير
+          💡 اسحب الصورة لتحريكها • استخدم إصبعين أو عجلة الماوس للتكبير
         </p>
       </div>
     </div>
   )
 }
 
-function photoCenterX(coverData, previewScale) {
-  return coverData.photoRect.x * previewScale + (coverData.photoRect.w * previewScale) / 2
+function ZoomStepBtn({ onClick, label }) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-9 h-9 shrink-0 rounded-xl bg-zinc-800/60 hover:bg-zinc-700/60 border border-zinc-700/50 text-zinc-200 text-lg font-bold leading-none transition-all hover:scale-105 active:scale-95"
+    >
+      {label}
+    </button>
+  )
 }
-function photoCenterY(coverData, previewScale) {
-  return coverData.photoRect.y * previewScale + (coverData.photoRect.h * previewScale) / 2
+
+function QualityBadge({ sharpness }) {
+  const level =
+    sharpness >= 1.5
+      ? { t: 'دقة ممتازة', c: 'text-emerald-400', d: 'bg-emerald-400' }
+      : sharpness >= 1
+      ? { t: 'دقة جيدة', c: 'text-yellow-400', d: 'bg-yellow-400' }
+      : { t: 'دقة منخفضة', c: 'text-red-400', d: 'bg-red-400' }
+  return (
+    <span className={`flex items-center gap-1.5 font-medium ${level.c}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${level.d} animate-pulse`} />
+      {level.t}
+    </span>
+  )
 }
 
 function ToolButton({ onClick, icon, label, variant }) {

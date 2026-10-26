@@ -13,6 +13,8 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const imageRef = useRef()
+  const [zoom, setZoom] = useState({ factor: 1, min: 0.5, max: 3, sharpness: 1 })
+  const bridge = useRef({})
 
   useEffect(() => {
     loadCover(config.coverUrl)
@@ -25,6 +27,12 @@ export default function App() {
     if (imageRef.current && userImage) {
       setUserImage({ ...userImage })
     }
+  }
+
+  // ✅ دالة رفع الصورة مع إعادة تعيين حالة التكبير
+  const handleUpload = (img) => {
+    setZoom({ factor: 1, min: 0.5, max: 3, sharpness: 1 })
+    setUserImage(img)
   }
 
   if (loading) {
@@ -81,9 +89,9 @@ export default function App() {
         </header>
 
         {/* Main content */}
-<div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr),360px] gap-6 lg:gap-8 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr),360px] gap-6 lg:gap-8 items-start">
           {/* Canvas area */}
-            <div className="glass rounded-2xl p-3 sm:p-4 md:p-6 fade-in min-w-0">
+          <div className="glass rounded-2xl p-3 sm:p-4 md:p-6 fade-in min-w-0">
             {userImage ? (
               <div className="fade-in">
                 <EditorCanvas
@@ -91,18 +99,20 @@ export default function App() {
                   coverData={coverData}
                   imageRef={imageRef}
                   onTransform={() => {}}
+                  onZoomChange={setZoom}
+                  bridge={bridge}
                 />
               </div>
             ) : (
-              <UploadPlaceholder onUpload={setUserImage} />
+              <UploadPlaceholder onUpload={handleUpload} />
             )}
           </div>
 
           {/* Controls panel */}
-         <div className="space-y-4 fade-in min-w-0">
+          <div className="space-y-4 fade-in min-w-0">
             {/* Upload button - prominent on mobile */}
             <div className="lg:hidden">
-              <UploadButton onUpload={setUserImage} hasImage={!!userImage} />
+              <UploadButton onUpload={handleUpload} hasImage={!!userImage} />
             </div>
 
             {/* Toolbar */}
@@ -112,13 +122,15 @@ export default function App() {
                   imageRef={imageRef}
                   coverData={coverData}
                   onReset={handleReset}
+                  zoom={zoom}
+                  onFactor={(f) => bridge.current.setFactor?.(f)}
                 />
               </div>
             )}
 
             {/* Desktop upload + download */}
             <div className="hidden lg:block space-y-4">
-              <UploadButton onUpload={setUserImage} hasImage={!!userImage} />
+              <UploadButton onUpload={handleUpload} hasImage={!!userImage} />
               {userImage && (
                 <DownloadButton
                   imageRef={imageRef}
