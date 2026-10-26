@@ -8,8 +8,7 @@ export default function Toolbar({ imageRef, coverData, onTransform, onReset }) {
 
   useEffect(() => {
     if (imageRef.current) {
-      const s = imageRef.current.scaleX()
-      setBaseScale(s)
+      setBaseScale(imageRef.current.scaleX())
       setFactor(1)
     }
   }, [imageRef.current?.image?.()])
@@ -26,27 +25,28 @@ export default function Toolbar({ imageRef, coverData, onTransform, onReset }) {
 
   const rotate = () => {
     if (!imageRef.current) return
-    const newRot = imageRef.current.rotation() + 90
-    imageRef.current.rotation(newRot)
+    imageRef.current.rotation(imageRef.current.rotation() + 90)
     imageRef.current.getLayer().batchDraw()
     onTransform?.()
   }
 
   const center = () => {
-    if (!imageRef.current) return
-    const { photoRect, originalWidth } = coverData
-    const previewScale = STAGE_PREVIEW_WIDTH / originalWidth
-    imageRef.current.position({
-      x: photoRect.x * previewScale + (photoRect.w * previewScale) / 2,
-      y: photoRect.y * previewScale + (photoRect.h * previewScale) / 2
+    const node = imageRef.current
+    if (!node) return
+    // الإصلاح: الحساب من عرض المسرح الفعلي وليس من ثابت
+    const stage = node.getStage()
+    const stageWidth = stage ? stage.width() : STAGE_PREVIEW_WIDTH
+    const previewScale = stageWidth / coverData.originalWidth
+    node.position({
+      x: photoCenterX(coverData, previewScale),
+      y: photoCenterY(coverData, previewScale)
     })
-    imageRef.current.getLayer().batchDraw()
+    node.getLayer().batchDraw()
     onTransform?.()
   }
 
   return (
     <div className="glass rounded-2xl p-4 md:p-5 space-y-5">
-      {/* Zoom slider */}
       <div>
         <div className="flex items-center justify-between mb-3">
           <label className="text-sm text-zinc-300 font-medium">التكبير</label>
@@ -69,14 +69,12 @@ export default function Toolbar({ imageRef, coverData, onTransform, onReset }) {
         </div>
       </div>
 
-      {/* Action buttons */}
       <div className="grid grid-cols-3 gap-2">
         <ToolButton onClick={rotate} icon={<RotateIcon />} label="تدوير" />
         <ToolButton onClick={center} icon={<CenterIcon />} label="توسيط" />
         <ToolButton onClick={onReset} icon={<ResetIcon />} label="إعادة" variant="danger" />
       </div>
 
-      {/* Help text */}
       <div className="pt-4 border-t border-zinc-800/50">
         <p className="text-xs text-zinc-500 text-center leading-relaxed">
           💡 اسحب الصورة لتحريكها<br />
@@ -87,14 +85,21 @@ export default function Toolbar({ imageRef, coverData, onTransform, onReset }) {
   )
 }
 
+function photoCenterX(coverData, previewScale) {
+  return coverData.photoRect.x * previewScale + (coverData.photoRect.w * previewScale) / 2
+}
+function photoCenterY(coverData, previewScale) {
+  return coverData.photoRect.y * previewScale + (coverData.photoRect.h * previewScale) / 2
+}
+
 function ToolButton({ onClick, icon, label, variant }) {
   return (
     <button
       onClick={onClick}
-      className={`flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl transition-all text-xs font-medium ${
+      className={`flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl transition-all text-xs font-medium border ${
         variant === 'danger'
-          ? 'bg-zinc-800/50 hover:bg-red-950/50 text-zinc-300 hover:text-red-300 border border-zinc-700/50'
-          : 'bg-zinc-800/50 hover:bg-zinc-700/50 text-zinc-200 border border-zinc-700/50'
+          ? 'bg-zinc-800/50 hover:bg-red-950/50 text-zinc-300 hover:text-red-300 border-zinc-700/50'
+          : 'bg-zinc-800/50 hover:bg-zinc-700/50 text-zinc-200 border-zinc-700/50'
       } hover:scale-105 active:scale-95`}
     >
       {icon}
@@ -106,26 +111,21 @@ function ToolButton({ onClick, icon, label, variant }) {
 function RotateIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
-      <path d="M3 3v5h5" />
+      <path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5" />
     </svg>
   )
 }
-
 function CenterIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="3" />
-      <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
+      <circle cx="12" cy="12" r="3" /><path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
     </svg>
   )
 }
-
 function ResetIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
-      <path d="M3 3v5h5" />
+      <path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5" />
     </svg>
   )
 }

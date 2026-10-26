@@ -9,24 +9,48 @@ export default function EditorCanvas({ userImage, coverData, imageRef, onTransfo
   const containerRef = useRef()
   const [stageSize, setStageSize] = useState(STAGE_PREVIEW_WIDTH)
   const lastDistRef = useRef(0)
+  const prevPreviewRef = useRef(null)
 
   const { photoRect, originalWidth, originalHeight } = coverData
   const previewScale = stageSize / originalWidth
   const stageHeight = Math.round(originalHeight * previewScale)
 
-  // Responsive stage size
+  // قياس عرض الحاوية الفعلي (جوال/تابلت/ديسكتوب)
   useEffect(() => {
     const updateSize = () => {
       if (containerRef.current) {
-        const width = Math.min(containerRef.current.offsetWidth - 32, STAGE_PREVIEW_WIDTH)
-        setStageSize(Math.max(280, width))
+        const width = containerRef.current.offsetWidth
+        setStageSize(Math.max(260, Math.min(width, STAGE_PREVIEW_WIDTH)))
       }
     }
     updateSize()
     window.addEventListener('resize', updateSize)
-    return () => window.removeEventListener('resize', updateSize)
+    window.addEventListener('orientationchange', updateSize)
+    return () => {
+      window.removeEventListener('resize', updateSize)
+      window.removeEventListener('orientationchange', updateSize)
+    }
   }, [])
 
+  // عند تغيّر حجم المسرح: نعيد تحجيم موضع ومقياس الصورة بنفس النسبة
+  // حتى لا "تتخرب" تعديلات المستخدم عند تدوير الجهاز أو تغيّر الشاشة
+  useEffect(() => {
+    const ps = stageSize / originalWidth
+    const prev = prevPreviewRef.current
+    prevPreviewRef.current = ps
+    if (prev && prev !== ps) {
+      const node = imageRef.current
+      if (node && node.image()) {
+        const ratio = ps / prev
+        node.scale({ x: node.scaleX() * ratio, y: node.scaleY() * ratio })
+        node.position({ x: node.x() * ratio, y: node.y() * ratio })
+        node.getLayer()?.batchDraw()
+        onTransform?.()
+      }
+    }
+  }, [stageSize, originalWidth])
+
+  // الضبط الأولي: ملء منطقة الصورة بالكامل (Cover Fit)
   useEffect(() => {
     if (userImg && imageRef.current) {
       const node = imageRef.current
@@ -53,6 +77,7 @@ export default function EditorCanvas({ userImage, coverData, imageRef, onTransfo
     }
   }, [userImg])
 
+  // تكبير بعجلة الماوس
   const handleWheel = (e) => {
     e.evt.preventDefault()
     const node = imageRef.current
@@ -65,34 +90,34 @@ export default function EditorCanvas({ userImage, coverData, imageRef, onTransfo
     onTransform?.()
   }
 
-  // Pinch zoom for mobile
-  const getDistance = (p1, p2) => {
-    return Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2))
-  }
+  // تكبير بإصبعين (Pinch Zoom) للجوال
+  const getDistance = (p1, p2) =>
+    Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2))
 
   const handleTouchStart = (e) => {
-    const touches = e.evt.touches
-    if (touches.length === 2) {
-      const p1 = { x: touches[0].clientX, y: touches[0].clientY }
-      const p2 = { x: touches[1].clientX, y: touches[1].clientY }
-      lastDistRef.current = getDistance(p1, p2)
+    const t = e.evt.touches
+    if (t.length === 2) {
+      lastDistRef.current = getDistance(
+        { x: t[0].clientX, y: t[0].clientY },
+        { x: t[1].clientX, y: t[1].clientY }
+      )
     }
   }
 
   const handleTouchMove = (e) => {
-    const touches = e.evt.touches
-    if (touches.length === 2 && imageRef.current) {
+    const t = e.evt.touches
+    if (t.length === 2 && imageRef.current) {
       e.evt.preventDefault()
-      const p1 = { x: touches[0].clientX, y: touches[0].clientY }
-      const p2 = { x: touches[1].clientX, y: touches[1].clientY }
-      const dist = getDistance(p1, p2)
-      
+      const dist = getDistance(
+        { x: t[0].clientX, y: t[0].clientY },
+        { x: t[1].clientX, y: t[1].clientY }
+      )
       if (lastDistRef.current > 0) {
-        const scale = dist / lastDistRef.current
         const node = imageRef.current
-        const oldScale = node.scaleX()
-        const newScale = oldScale * scale
-        node.scale({ x: newScale, y: newScale })
+        node.scale({
+          x: node.scaleX() * (dist / lastDistRef.current),
+          y: node.scaleY() * (dist / lastDistRef.current)
+        })
         node.getLayer().batchDraw()
         onTransform?.()
       }
