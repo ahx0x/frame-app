@@ -12,6 +12,7 @@ html, body {
   color: #f4f4f5;
   -webkit-font-smoothing: antialiased;
   overscroll-behavior: none;
+  min-height: 100vh;
 }
 
 * {
@@ -22,21 +23,24 @@ button {
   font-family: inherit;
 }
 
+/* Konva Stage responsive */
 .konva-stage {
   touch-action: none;
   max-width: 100%;
+  width: 100% !important;
   height: auto !important;
   display: block;
   margin: 0 auto;
-  border-radius: 0.5rem;
+  border-radius: 1rem;
+  box-shadow: 0 10px 40px -10px rgba(234, 179, 8, 0.1);
 }
 
-/* Custom slider */
+/* Custom range slider */
 input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
   height: 6px;
-  background: #3f3f46;
+  background: linear-gradient(to left, #eab308, #f59e0b);
   border-radius: 3px;
   outline: none;
 }
@@ -44,19 +48,80 @@ input[type="range"] {
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
-  background: #eab308;
+  background: #fff;
   cursor: pointer;
-  border: 2px solid #09090b;
+  border: 3px solid #eab308;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  transition: transform 0.2s;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
 }
 
 input[type="range"]::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
-  background: #eab308;
+  background: #fff;
   cursor: pointer;
-  border: 2px solid #09090b;
+  border: 3px solid #eab308;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+  animation: fadeIn 0.4s ease-out;
+}
+
+@keyframes pulse-gold {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.4); }
+  50% { box-shadow: 0 0 0 12px rgba(234, 179, 8, 0); }
+}
+
+.pulse-gold {
+  animation: pulse-gold 2s infinite;
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, #eab308 0%, #f59e0b 50%, #fbbf24 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Glass effect */
+.glass {
+  background: rgba(24, 24, 27, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(63, 63, 70, 0.5);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #18181b;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #52525b;
 }

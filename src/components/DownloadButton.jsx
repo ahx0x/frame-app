@@ -4,6 +4,7 @@ import { config } from '../lib/config'
 
 export default function DownloadButton({ imageRef, coverData, userImage }) {
   const [loading, setLoading] = useState(false)
+  const [success, setSuccess] = useState(false)
 
   const handleDownload = async () => {
     if (!imageRef.current) return
@@ -25,6 +26,9 @@ export default function DownloadButton({ imageRef, coverData, userImage }) {
       a.click()
       document.body.removeChild(a)
       setTimeout(() => URL.revokeObjectURL(url), 1000)
+      
+      setSuccess(true)
+      setTimeout(() => setSuccess(false), 3000)
     } catch (err) {
       console.error(err)
       alert('حدث خطأ أثناء التصدير')
@@ -37,15 +41,39 @@ export default function DownloadButton({ imageRef, coverData, userImage }) {
     <button
       onClick={handleDownload}
       disabled={loading}
-      className="w-full py-3.5 bg-gradient-to-l from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-all shadow-lg shadow-emerald-500/20"
+      className={`w-full py-4 font-semibold rounded-2xl transition-all shadow-lg ${
+        success
+          ? 'bg-gradient-to-l from-emerald-600 to-emerald-500 text-white'
+          : 'bg-gradient-to-l from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white shadow-emerald-500/30 hover:shadow-emerald-500/50 hover:scale-[1.02] active:scale-[0.98]'
+      } disabled:opacity-50 disabled:cursor-not-allowed`}
     >
-      {loading ? (
-        <span className="flex items-center justify-center gap-2">
-          <Spinner /> جارٍ التجهيز...
-        </span>
-      ) : (
-        '⬇️ تحميل الصورة النهائية'
-      )}
+      <span className="flex items-center justify-center gap-2 text-base">
+        {loading ? (
+          <>
+            <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+            </svg>
+            جارٍ التجهيز...
+          </>
+        ) : success ? (
+          <>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            تم التحميل بنجاح!
+          </>
+        ) : (
+          <>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            تحميل الصورة النهائية
+          </>
+        )}
+      </span>
     </button>
   )
 }
@@ -58,13 +86,4 @@ function loadImage(src) {
     img.onerror = reject
     img.src = src
   })
-}
-
-function Spinner() {
-  return (
-    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-    </svg>
-  )
 }
